@@ -23,7 +23,7 @@
 /* ---------- Constantes du benchmark ---------- */
 #define N_START        10000
 #define N_END       10000000
-#define N_STEP         50000
+#define N_STEP        100000
 #define N_QUAD_MAX    100000   /* seuil pour les tris O(n^2) */
 
 #define NB_ALGOS  5
