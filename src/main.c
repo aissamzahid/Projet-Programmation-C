@@ -21,10 +21,15 @@
 #include "utils.h"
 
 /* ---------- Constantes du benchmark ---------- */
-#define N_START        10000
-#define N_END       10000000
-#define N_STEP        100000
-#define N_QUAD_MAX    100000   /* seuil pour les tris O(n^2) */
+/* Phase 1 : tous les algorithmes (y compris quadratiques) */
+#define N_QUAD_START   10000
+#define N_QUAD_END     50000
+#define N_QUAD_STEP    10000
+
+/* Phase 2 : algorithmes O(n log n) uniquement */
+#define N_FAST_START   50000
+#define N_FAST_END  10000000
+#define N_FAST_STEP   100000
 
 #define NB_ALGOS  5
 #define NB_SCENARIOS 3
@@ -103,17 +108,19 @@ int main(void)
     /* ---- 6. Boucle principale du benchmark ---- */
     printf("\nDemarrage du benchmark...\n\n");
 
-    for (int n = N_START; n <= N_END; n += N_STEP) {
+    /* ======== Phase 1 : tous les algorithmes (10k -> 50k, pas 10k) ======== */
+    printf("=== Phase 1 : tous les algorithmes (N = %d a %d, pas %d) ===\n\n",
+           N_QUAD_START, N_QUAD_END, N_QUAD_STEP);
+
+    for (int n = N_QUAD_START; n <= N_QUAD_END; n += N_QUAD_STEP) {
 
         printf("--- N = %d ---\n", n);
 
-        /* 6a. Generation des 3 tableaux source */
         int* sources[NB_SCENARIOS];
         sources[0] = generate_random_array(n);
         sources[1] = generate_sorted_array(n);
         sources[2] = generate_reverse_array(n);
 
-        /* Verification des allocations */
         int alloc_ok = 1;
         for (int s = 0; s < NB_SCENARIOS; s++) {
             if (sources[s] == NULL) {
@@ -128,7 +135,6 @@ int main(void)
             continue;
         }
 
-        /* 6b. Allocation d'un tableau de travail (copie avant chaque tri) */
         int* work = (int*)malloc((size_t)n * sizeof(int));
         if (work == NULL) {
             fprintf(stderr, "  [ERREUR] Allocation du tableau de travail echouee (N=%d)\n", n);
@@ -137,34 +143,21 @@ int main(void)
             continue;
         }
 
-        /* 6c. Pour chaque scenario ... */
         for (int s = 0; s < NB_SCENARIOS; s++) {
-
-            /* ... pour chaque algorithme ... */
             for (int a = 0; a < NB_ALGOS; a++) {
-
-                /* Ignorer les tris quadratiques si N > 100 000 */
-                if (algos[a].is_quadratic && n > N_QUAD_MAX) {
-                    continue;
-                }
-
-                /* Copier le tableau source dans le tableau de travail */
                 copy_array(sources[s], work, n);
 
-                /* Mesure du temps */
                 double t_start = get_time_sec();
                 algos[a].func(work, n);
                 double t_end   = get_time_sec();
                 double elapsed  = t_end - t_start;
 
-                /* Verification post-tri */
                 if (!is_sorted(work, n)) {
                     fprintf(stderr, "  [ECHEC] %s n'a pas trie correctement "
                             "(N=%d, %s)\n", algos[a].name, n, scenario_names[s]);
                 }
 
-                /* Ecriture dans le CSV */
-                fprintf(csv, "%d,%s,%s,%.9f\n",
+                fprintf(csv, "%d,%s,%s,%.7f\n",
                         n, scenario_names[s], algos[a].name, elapsed);
 
                 printf("  %-16s | %-10s | %.6f s\n",
@@ -172,12 +165,75 @@ int main(void)
             }
         }
 
-        /* 6d. Liberation memoire de cette iteration */
         free(work);
         for (int s = 0; s < NB_SCENARIOS; s++)
             free(sources[s]);
+        fflush(csv);
+    }
 
-        /* Flush du CSV pour ne rien perdre en cas d'arret premature */
+    /* ======== Phase 2 : algorithmes O(n log n) (110k -> 10M, pas 100k) ======== */
+    printf("\n=== Phase 2 : Quick Sort & Merge Sort (N = %d a %d, pas %d) ===\n\n",
+           N_FAST_START, N_FAST_END, N_FAST_STEP);
+
+    for (int n = N_FAST_START; n <= N_FAST_END; n += N_FAST_STEP) {
+
+        printf("--- N = %d ---\n", n);
+
+        int* sources[NB_SCENARIOS];
+        sources[0] = generate_random_array(n);
+        sources[1] = generate_sorted_array(n);
+        sources[2] = generate_reverse_array(n);
+
+        int alloc_ok = 1;
+        for (int s = 0; s < NB_SCENARIOS; s++) {
+            if (sources[s] == NULL) {
+                fprintf(stderr, "  [ERREUR] Allocation echouee pour N=%d, scenario=%s\n",
+                        n, scenario_names[s]);
+                alloc_ok = 0;
+            }
+        }
+        if (!alloc_ok) {
+            for (int s = 0; s < NB_SCENARIOS; s++)
+                free(sources[s]);
+            continue;
+        }
+
+        int* work = (int*)malloc((size_t)n * sizeof(int));
+        if (work == NULL) {
+            fprintf(stderr, "  [ERREUR] Allocation du tableau de travail echouee (N=%d)\n", n);
+            for (int s = 0; s < NB_SCENARIOS; s++)
+                free(sources[s]);
+            continue;
+        }
+
+        for (int s = 0; s < NB_SCENARIOS; s++) {
+            for (int a = 0; a < NB_ALGOS; a++) {
+                /* Phase 2 : ignorer les tris quadratiques */
+                if (algos[a].is_quadratic) continue;
+
+                copy_array(sources[s], work, n);
+
+                double t_start = get_time_sec();
+                algos[a].func(work, n);
+                double t_end   = get_time_sec();
+                double elapsed  = t_end - t_start;
+
+                if (!is_sorted(work, n)) {
+                    fprintf(stderr, "  [ECHEC] %s n'a pas trie correctement "
+                            "(N=%d, %s)\n", algos[a].name, n, scenario_names[s]);
+                }
+
+                fprintf(csv, "%d,%s,%s,%.7f\n",
+                        n, scenario_names[s], algos[a].name, elapsed);
+
+                printf("  %-16s | %-10s | %.6f s\n",
+                       algos[a].name, scenario_names[s], elapsed);
+            }
+        }
+
+        free(work);
+        for (int s = 0; s < NB_SCENARIOS; s++)
+            free(sources[s]);
         fflush(csv);
     }
 
