@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 /* ---------- Mesure de temps haute precision ---------- */
 #ifdef _WIN32
@@ -70,21 +69,11 @@ static void ensure_data_dir(void)
  * ================================================================ */
 int main(void)
 {
-    /* ---- 1. Saisie de la configuration du PC ---- */
-    char pc_config[256];
     printf("=== Benchmark des algorithmes de tri ===\n\n");
-    printf("Entrez la configuration de votre PC\n");
-    printf("  (ex: i7-12700H, 16 Go RAM, Windows 11) : ");
-    fflush(stdout);
+    printf("NOTE : Remplissez data/pc_config.txt avec votre configuration PC\n");
+    printf("       (cette info sera utilisee par le script de visualisation).\n\n");
 
-    if (fgets(pc_config, sizeof(pc_config), stdin) == NULL) {
-        fprintf(stderr, "Erreur de lecture.\n");
-        return 1;
-    }
-    /* Retirer le retour a la ligne */
-    pc_config[strcspn(pc_config, "\r\n")] = '\0';
-
-    /* ---- 2. Initialisation du generateur aleatoire ---- */
+    /* ---- 1. Initialisation du generateur aleatoire ---- */
     data_gen_seed(0);   /* graine automatique (basee sur time) */
 
     /* ---- 3. Table des algorithmes ---- */
@@ -109,7 +98,7 @@ int main(void)
         fprintf(stderr, "Impossible de creer data/results.csv\n");
         return 1;
     }
-    fprintf(csv, "Taille,Scenario,Nom_Algo,Temps,PC_Config\n");
+    fprintf(csv, "Taille,Scenario,Nom_Algo,Temps\n");
 
     /* ---- 6. Boucle principale du benchmark ---- */
     printf("\nDemarrage du benchmark...\n\n");
@@ -175,8 +164,8 @@ int main(void)
                 }
 
                 /* Ecriture dans le CSV */
-                fprintf(csv, "%d,%s,%s,%.9f,%s\n",
-                        n, scenario_names[s], algos[a].name, elapsed, pc_config);
+                fprintf(csv, "%d,%s,%s,%.9f\n",
+                        n, scenario_names[s], algos[a].name, elapsed);
 
                 printf("  %-16s | %-10s | %.6f s\n",
                        algos[a].name, scenario_names[s], elapsed);

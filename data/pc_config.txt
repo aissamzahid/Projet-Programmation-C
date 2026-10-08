@@ -1,0 +1,7 @@
+# Configuration PC
+# Remplissez ce fichier avec les informations de votre machine.
+# Cette information sera affichee dans les titres des graphiques.
+#
+# Exemple : i7-12700H, 16 Go RAM, Windows 11
+
+PC non configure
