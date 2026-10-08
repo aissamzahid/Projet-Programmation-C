@@ -27,7 +27,7 @@
 #define N_QUAD_STEP    10000
 
 /* Phase 2 : algorithmes O(n log n) uniquement */
-#define N_FAST_START   50000
+#define N_FAST_START   100000
 #define N_FAST_END  10000000
 #define N_FAST_STEP   100000
 
