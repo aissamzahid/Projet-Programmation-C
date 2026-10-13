@@ -24,6 +24,7 @@ Les algorithmes sont comparés sur différentes tailles de tableaux et sur trois
 ├── src/
 │   ├── data_gen.h / data_gen.c   # Génération des tableaux (aléatoire, trié, inversé)
 │   ├── sorts.h / sorts.c         # Les 5 algorithmes de tri
+│   ├── array_io.h / array_io.c   # Module de stockage des tableaux      
 │   ├── utils.h / utils.c         # is_sorted(), copy_array()
 │   └── main.c                    # Boucle de benchmark
 ├── data/
