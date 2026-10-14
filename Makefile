@@ -3,7 +3,7 @@ CC      = gcc
 CFLAGS  = -Wall -Wextra -O2
 
 # Fichiers du projet (les .c de Aissam et Reda doivent exister pour "make")
-SRC     = src/main.c src/data_gen.c src/sorts.c src/utils.c
+SRC     = src/main.c src/data_gen.c src/array_io.c src/sorts.c src/utils.c
 OBJ     = $(SRC:.c=.o)
 
 # Nom de l'executable et commande de nettoyage selon le systeme

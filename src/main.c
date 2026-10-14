@@ -1,9 +1,10 @@
 /* ================================================================
  *  main.c — Programme principal du benchmark des algorithmes de tri
  *  ================================================================
- *  Parcourt les tailles N = 10 000 → 10 000 000 (pas de 50 000),
- *  genere 3 scenarios (aleatoire, trie, inverse), chronometre
- *  chaque algorithme et ecrit les resultats dans data/results.csv.
+ *  Parcourt les tailles N = 10 000 → 10 000 000,
+ *  charge les 3 scenarios depuis des fichiers .bin persistants
+ *  (dossier data_generated/), chronometre chaque algorithme
+ *  et ecrit les resultats dans data/results.csv.
  * ================================================================ */
 
 #include <stdio.h>
@@ -17,6 +18,7 @@
 #endif
 
 #include "data_gen.h"
+#include "array_io.h"
 #include "sorts.h"
 #include "utils.h"
 
@@ -33,6 +35,14 @@
 
 #define NB_ALGOS  5
 #define NB_SCENARIOS 3
+
+/* Dossier de stockage des fichiers .bin generes */
+#define DATA_GEN_DIR "data_generated"
+
+/* Prefixes des fichiers .bin (meme ordre que scenario_names) */
+static const char* FILE_PREFIXES[NB_SCENARIOS] = {
+    "random", "sorted", "reverse"
+};
 
 /* ---------- Descripteur d'algorithme ---------- */
 typedef void (*sort_fn)(int*, int);
@@ -69,6 +79,39 @@ static void ensure_data_dir(void)
 #endif
 }
 
+/* ---------- Creation du dossier data_generated/ si necessaire ---------- */
+static void ensure_data_generated_dir(void)
+{
+#ifdef _WIN32
+    CreateDirectoryA(DATA_GEN_DIR, NULL);
+#else
+    system("mkdir -p " DATA_GEN_DIR);
+#endif
+}
+
+/* ---------- Chargement d'un scenario depuis un fichier .bin ---------- */
+/* Tente de charger le fichier ; s'il n'existe pas, genere le dataset   */
+/* complet pour la taille n puis recharge le fichier demande.           */
+static int* load_scenario(int scenario_idx, int n)
+{
+    char path[512];
+    snprintf(path, sizeof(path), "%s/%s_%d.bin",
+             DATA_GEN_DIR, FILE_PREFIXES[scenario_idx], n);
+
+    int loaded_n = 0;
+    int* arr = load_array(path, &loaded_n);
+
+    if (arr == NULL) {
+        /* Fichier absent : generer les 3 scenarios sur disque */
+        printf("  [INFO] Dataset N=%d absent, generation dans %s/...\n",
+               n, DATA_GEN_DIR);
+        data_gen_seed(0);
+        save_dataset(DATA_GEN_DIR, n);
+        arr = load_array(path, &loaded_n);
+    }
+    return arr;
+}
+
 /* ================================================================
  *  main
  * ================================================================ */
@@ -95,8 +138,9 @@ int main(void)
         "Aleatoire", "Trie", "Inverse"
     };
 
-    /* ---- 5. Ouverture du fichier CSV ---- */
+    /* ---- 5. Creation des dossiers et ouverture du fichier CSV ---- */
     ensure_data_dir();
+    ensure_data_generated_dir();
 
     FILE* csv = fopen("data/results.csv", "w");
     if (csv == NULL) {
@@ -117,9 +161,8 @@ int main(void)
         printf("--- N = %d ---\n", n);
 
         int* sources[NB_SCENARIOS];
-        sources[0] = generate_random_array(n);
-        sources[1] = generate_sorted_array(n);
-        sources[2] = generate_reverse_array(n);
+        for (int s = 0; s < NB_SCENARIOS; s++)
+            sources[s] = load_scenario(s, n);
 
         int alloc_ok = 1;
         for (int s = 0; s < NB_SCENARIOS; s++) {
@@ -180,9 +223,8 @@ int main(void)
         printf("--- N = %d ---\n", n);
 
         int* sources[NB_SCENARIOS];
-        sources[0] = generate_random_array(n);
-        sources[1] = generate_sorted_array(n);
-        sources[2] = generate_reverse_array(n);
+        for (int s = 0; s < NB_SCENARIOS; s++)
+            sources[s] = load_scenario(s, n);
 
         int alloc_ok = 1;
         for (int s = 0; s < NB_SCENARIOS; s++) {

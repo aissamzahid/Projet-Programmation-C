@@ -1,0 +1,9 @@
+# Fichiers objets et executable
+src/*.o
+benchmark
+benchmark.exe
+test_utils
+test_utils.exe
+
+# Fichiers binaires generes (volumineux)
+data_generated/*.bin
