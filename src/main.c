@@ -79,6 +79,60 @@ static void ensure_data_dir(void)
 #endif
 }
 
+/* ---------- Lecture de la configuration PC depuis data/pc_config.txt ---------- */
+/* Remplace les virgules par des points-virgules pour ne pas corrompre le CSV.   */
+static void read_pc_config(char* buf, size_t buf_size)
+{
+    const char* path = "data/pc_config.txt";
+    FILE* f = fopen(path, "r");
+    if (f == NULL) {
+        /* Fichier absent : valeur par defaut */
+        snprintf(buf, buf_size, "Configuration inconnue");
+        return;
+    }
+
+    /* Lire la premiere ligne non-vide */
+    buf[0] = '\0';
+    while (fgets(buf, (int)buf_size, f)) {
+        /* Supprimer le saut de ligne eventuel */
+        size_t len = strlen(buf);
+        while (len > 0 && (buf[len-1] == '\n' || buf[len-1] == '\r'))
+            buf[--len] = '\0';
+        if (len > 0) break;   /* on garde la premiere ligne non-vide */
+    }
+    fclose(f);
+
+    /* Remplacer les virgules par des points-virgules (separateur CSV reserve) */
+    for (size_t i = 0; buf[i]; i++)
+        if (buf[i] == ',') buf[i] = ';';
+
+    if (buf[0] == '\0')
+        snprintf(buf, buf_size, "Configuration inconnue");
+}
+
+/* ---------- Construction du slug de nom de fichier depuis pc_config ---------- */
+/* Produit un identifiant fichier sur : espaces -> '_', on garde [A-Za-z0-9._-]. */
+static void make_csv_slug(const char* config, char* slug, size_t slug_size)
+{
+    size_t j = 0;
+    for (size_t i = 0; config[i] && j < slug_size - 1; i++) {
+        char c = config[i];
+        if (c == ' ' || c == '\t')              { slug[j++] = '_'; }
+        else if ((c >= 'A' && c <= 'Z') ||
+                 (c >= 'a' && c <= 'z') ||
+                 (c >= '0' && c <= '9') ||
+                 c == '-' || c == '.')           { slug[j++] = c;   }
+        /* autres caracteres (; ( ) / ...) ignores */
+    }
+    /* Eviter un slug vide */
+    if (j == 0) {
+        const char* fallback = "machine";
+        for (size_t k = 0; fallback[k] && j < slug_size - 1; k++)
+            slug[j++] = fallback[k];
+    }
+    slug[j] = '\0';
+}
+
 /* ---------- Creation du dossier data_generated/ si necessaire ---------- */
 static void ensure_data_generated_dir(void)
 {
@@ -119,7 +173,7 @@ int main(void)
 {
     printf("=== Benchmark des algorithmes de tri ===\n\n");
     printf("NOTE : Remplissez data/pc_config.txt avec votre configuration PC\n");
-    printf("       (cette info sera utilisee par le script de visualisation).\n\n");
+    printf("       (cette info sera ecrite dans chaque ligne de data/results.csv).\n\n");
 
     /* ---- 1. Initialisation du generateur aleatoire ---- */
     data_gen_seed(0);   /* graine automatique (basee sur time) */
@@ -142,12 +196,25 @@ int main(void)
     ensure_data_dir();
     ensure_data_generated_dir();
 
-    FILE* csv = fopen("data/results.csv", "w");
+    /* ---- Lecture de la configuration PC ---- */
+    char pc_config[256];
+    read_pc_config(pc_config, sizeof(pc_config));
+    printf("Configuration PC detectee : %s\n\n", pc_config);
+
+    /* ---- Construction du nom de fichier CSV : data/results_<slug>.csv ---- */
+    char csv_slug[200];
+    make_csv_slug(pc_config, csv_slug, sizeof(csv_slug));
+
+    char csv_path[512];
+    snprintf(csv_path, sizeof(csv_path), "data/results_%s.csv", csv_slug);
+    printf("Fichier de resultats : %s\n\n", csv_path);
+
+    FILE* csv = fopen(csv_path, "w");
     if (csv == NULL) {
-        fprintf(stderr, "Impossible de creer data/results.csv\n");
+        fprintf(stderr, "Impossible de creer %s\n", csv_path);
         return 1;
     }
-    fprintf(csv, "Taille,Scenario,Nom_Algo,Temps\n");
+    fprintf(csv, "Taille,Scenario,Nom_Algo,Temps,PC_Config\n");
 
     /* ---- 6. Boucle principale du benchmark ---- */
     printf("\nDemarrage du benchmark...\n\n");
@@ -200,8 +267,8 @@ int main(void)
                             "(N=%d, %s)\n", algos[a].name, n, scenario_names[s]);
                 }
 
-                fprintf(csv, "%d,%s,%s,%.7f\n",
-                        n, scenario_names[s], algos[a].name, elapsed);
+                fprintf(csv, "%d,%s,%s,%.7f,%s\n",
+                        n, scenario_names[s], algos[a].name, elapsed, pc_config);
 
                 printf("  %-16s | %-10s | %.6f s\n",
                        algos[a].name, scenario_names[s], elapsed);
@@ -265,8 +332,8 @@ int main(void)
                             "(N=%d, %s)\n", algos[a].name, n, scenario_names[s]);
                 }
 
-                fprintf(csv, "%d,%s,%s,%.7f\n",
-                        n, scenario_names[s], algos[a].name, elapsed);
+                fprintf(csv, "%d,%s,%s,%.7f,%s\n",
+                        n, scenario_names[s], algos[a].name, elapsed, pc_config);
 
                 printf("  %-16s | %-10s | %.6f s\n",
                        algos[a].name, scenario_names[s], elapsed);
@@ -282,7 +349,7 @@ int main(void)
     fclose(csv);
 
     printf("\n=== Benchmark termine ! ===\n");
-    printf("Resultats ecrits dans : data/results.csv\n");
+    printf("Resultats ecrits dans : %s\n", csv_path);
 
     return 0;
 }
